@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--<item
+        android:id="@+id/testBtn"
+        android:title="Lorem"
+        app:showAsAction="ifRoom"
+        />-->
+    <item
+        android:id="@+id/btnSettings"
+        android:icon="@drawable/settings"
+        android:title="Settings"
+        app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/btnBluetooth"
+        android:icon="@drawable/bluetooth"
+        android:title="Connect"
+        app:showAsAction="ifRoom" />
+</menu>
