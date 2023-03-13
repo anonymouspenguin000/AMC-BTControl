@@ -2,8 +2,6 @@ package com.example.amcbtcontrol;
 
 import android.content.Context;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;

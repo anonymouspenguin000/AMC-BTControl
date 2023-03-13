@@ -34,7 +34,6 @@ import java.util.TimerTask;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity implements View.OnTouchListener {
-
     ImageView joystick;
     ImageView joystickArea;
 
@@ -42,13 +41,14 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
     float dX, dY, j_str;
     int j_ang, r_dir;
 
-    boolean btDvcListOpen = false;
-    boolean connected = false;
-    final int RQ_BT_PM = 1;
 
     BluetoothAdapter BTA;
     BluetoothSocket BTS;
     OutputStream BTOS;
+    Timer BTL;
+    final int RQ_BT_PM = 1;
+    boolean btDvcListOpen = false;
+    boolean connected = false;
 
     //Timer BTLoop;
     @Override
@@ -131,22 +131,18 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
         switch (item.getItemId()) {
             case R.id.btnSettings:
                 if (connected) {
-                    Toast.makeText(getApplicationContext(), "Please disconnect", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Please disconnect", Toast.LENGTH_SHORT).show();
                     break;
                 }
-                Intent myIntent = new Intent(getApplicationContext(), SettingsActivity.class);
+                Intent myIntent = new Intent(this, SettingsActivity.class);
                 startActivity(myIntent);
                 break;
             case R.id.btnBluetooth:
-                if (connected) {
-                    try {
-                        BTS.close();
-                    } catch (IOException e) {
-                        Toast.makeText(getApplicationContext(), "Disconnected", Toast.LENGTH_SHORT).show();
-                    }
-                } else if (btDvcListOpen) {
+                if (btDvcListOpen) {
                     btDeviceList.setVisibility(View.INVISIBLE);
                     btDvcListOpen = false;
+                } else if (connected) {
+                    disconnect();
                 } else listBluetoothDevices();
                 break;
             default:
@@ -164,17 +160,23 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
     }
 
     private boolean btnAction(View view, int action) {
-        if (action == MotionEvent.ACTION_DOWN) switch (view.getId()) {
-            case R.id.btnRotateCW:
-                r_dir = 1;
-                break;
-            case R.id.btnRotateCCW:
-                r_dir = -1;
-                break;
-            default:
-                return false;
+        if (action == MotionEvent.ACTION_DOWN) {
+            view.setBackgroundResource(R.color.grey_2);
+            switch (view.getId()) {
+                case R.id.btnRotateCW:
+                    r_dir = 1;
+                    break;
+                case R.id.btnRotateCCW:
+                    r_dir = -1;
+                    break;
+                default:
+                    return false;
+            }
         }
-        else if (action == MotionEvent.ACTION_UP) r_dir = 0;
+        else if (action == MotionEvent.ACTION_UP) {
+            view.setBackgroundResource(R.color.grey_1);
+            r_dir = 0;
+        }
 
         return true;
     }
@@ -184,9 +186,9 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
     }
 
     private void listBluetoothDevices() {
-        Log.d("Click bt", "");
+        // Log.d("Click bt", "");
         if (BTA == null) {
-            Toast.makeText(getApplicationContext(), "Bluetooth not available", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Bluetooth not available", Toast.LENGTH_SHORT).show();
             return;
         }
         if (BTA.isEnabled()) {
@@ -201,7 +203,7 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
                     String name = btd.getName();
                     list.add(name == "" ? btd.getAddress() : name);
                 }
-                ArrayAdapter<String> adapter = new ArrayAdapter<>(getApplicationContext(), android.R.layout.simple_list_item_1, list);
+                ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, list);
                 btDeviceList.setAdapter(adapter);
 
                 btDeviceList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
@@ -211,19 +213,18 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
                                 ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED ||
                                 ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.BLUETOOTH_ADMIN) == PackageManager.PERMISSION_GRANTED
                         ) {
-                            Log.d("Position:", String.valueOf(position));
+                            // Log.d("Position:", String.valueOf(position));
                             BluetoothDevice device = pairedDevicesList.get(position);
                             UUID deviceUUID = device.getUuids()[0].getUuid();
                             try {
                                 BTS = device.createRfcommSocketToServiceRecord(deviceUUID);
-                                Log.d("UUID:", deviceUUID.toString());
                                 BTS.connect();
                                 BTOS = BTS.getOutputStream();
                                 runCast();
 
+                                Toast.makeText(getApplicationContext(), "Connected!", Toast.LENGTH_SHORT).show();
                                 connected = true;
                             } catch (IOException e) {
-                                Log.d("Conn?", connected ? "1" : "0");
                                 e.printStackTrace();
                                 Toast.makeText(getApplicationContext(), "Error", Toast.LENGTH_SHORT).show();
                             }
@@ -234,7 +235,7 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
                 ActivityCompat.requestPermissions(this, new String[] { Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN, Manifest.permission.BLUETOOTH_CONNECT }, RQ_BT_PM);
             }
         } else {
-            Toast.makeText(getApplicationContext(), "Bluetooth is off", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Bluetooth is off", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -246,8 +247,6 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
 
     private void runCast() {
         if (connected) return;
-
-        //BTLoop.cancel();
 
         HashMap<String, String> settings = new HashMap<>();
         settings.put("cmd_fw", "W");
@@ -263,61 +262,56 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
         settings.put("repeat", "50");
         settings.put("diag_area", "25");
 
-        HashMap<String, String> storedSettings = Utils.fetchSettings(getApplicationContext());
+        HashMap<String, String> storedSettings = Utils.fetchSettings(this);
         for (String key : storedSettings.keySet()) {
             settings.put(key, storedSettings.get(key));
         }
 
-        Timer timer = new Timer();
-        TimerTask checker = new TimerTask() {
+        BTL = new Timer();
+        TimerTask loopTask = new TimerTask() {
             @Override
             public void run() {
                 if (connected) {
-                    /*if (r_dir == -1) Log.d("CMD", settings.get("cmd_rtccw"));
-                    else if (r_dir == 1) Log.d("CMD", settings.get("cmd_rtcw"));
-                    else if (j_str > 0.1) {
-                        int dg_ar_ang = Integer.parseInt(settings.get("diag_area"));
-                        if (numInRange(-135 - dg_ar_ang / 2, dg_ar_ang, j_ang))
-                            Log.d("CMD", settings.get("cmd_fwlt"));
-                        else if (numInRange(-45 - dg_ar_ang / 2, dg_ar_ang, j_ang))
-                            Log.d("CMD", settings.get("cmd_fwrt"));
-                        else if (numInRange(45 - dg_ar_ang / 2, dg_ar_ang, j_ang))
-                            Log.d("CMD", settings.get("cmd_bwrt"));
-                        else if (numInRange(135 - dg_ar_ang / 2, dg_ar_ang, j_ang))
-                            Log.d("CMD", settings.get("cmd_bwlt"));
-                        else if (numInRange(-180, 45, j_ang) || numInRange(135, 45, j_ang))
-                            Log.d("CMD", settings.get("cmd_lt"));
-                        else if (numInRange(-135, 90, j_ang)) Log.d("CMD", settings.get("cmd_fw"));
-                        else if (numInRange(-45, 90, j_ang)) Log.d("CMD", settings.get("cmd_rt"));
-                        else if (numInRange(45, 90, j_ang)) Log.d("CMD", settings.get("cmd_bw"));
-                    }*/
                     try {
-                        if (r_dir == -1) BTOS.write(settings.get("cmd_rtccw").getBytes());
-                        else if (r_dir == 1) BTOS.write(settings.get("cmd_rtcw").getBytes());
+                        String cmdKey = "";
+
+                        if (r_dir == -1) cmdKey = "cmd_rtccw";
+                        else if (r_dir == 1) cmdKey = "cmd_rtcw";
                         else if (j_str > 0.1) {
                             int dg_ar_ang = Integer.parseInt(settings.get("diag_area"));
                             if (numInRange(-135 - dg_ar_ang / 2, dg_ar_ang, j_ang))
-                                BTOS.write(settings.get("cmd_fwlt").getBytes());
+                                cmdKey = "cmd_fwlt";
                             else if (numInRange(-45 - dg_ar_ang / 2, dg_ar_ang, j_ang))
-                                BTOS.write(settings.get("cmd_fwrt").getBytes());
+                                cmdKey = "cmd_fwrt";
                             else if (numInRange(45 - dg_ar_ang / 2, dg_ar_ang, j_ang))
-                                BTOS.write(settings.get("cmd_bwrt").getBytes());
+                                cmdKey = "cmd_bwrt";
                             else if (numInRange(135 - dg_ar_ang / 2, dg_ar_ang, j_ang))
-                                BTOS.write(settings.get("cmd_bwlt").getBytes());
+                                cmdKey = "cmd_bwlt";
                             else if (numInRange(-180, 45, j_ang) || numInRange(135, 45, j_ang))
-                                BTOS.write(settings.get("cmd_lt").getBytes());
-                            else if (numInRange(-135, 90, j_ang)) BTOS.write(settings.get("cmd_fw").getBytes());
-                            else if (numInRange(-45, 90, j_ang)) BTOS.write(settings.get("cmd_rt").getBytes());
-                            else if (numInRange(45, 90, j_ang)) BTOS.write(settings.get("cmd_bw").getBytes());
+                                cmdKey = "cmd_lt";
+                            else if (numInRange(-135, 90, j_ang)) cmdKey = "cmd_fw";
+                            else if (numInRange(-45, 90, j_ang)) cmdKey = "cmd_rt";
+                            else if (numInRange(45, 90, j_ang)) cmdKey = "cmd_bw";
+                        }
+                        if (cmdKey != "") {
+                            // Log.d("CMD", cmdKey);
+                            BTOS.write(settings.get(cmdKey).getBytes());
                         }
                     } catch (IOException e) {
-                        Toast.makeText(getApplicationContext(), "Disconnected", Toast.LENGTH_SHORT).show();
-                        timer.cancel();
-                        connected = false;
+                        disconnect();
                     }
                 }
             }
         };
-        timer.schedule(checker, 0L, Integer.parseInt(settings.get("repeat")));
+        BTL.schedule(loopTask, 0L, Integer.parseInt(settings.get("repeat")));
+    }
+    private void disconnect() {
+        try {
+            BTS.close();
+        } catch (IOException ignored) {}
+
+        BTL.cancel();
+        connected = false;
+        Toast.makeText(this, "Disconnected", Toast.LENGTH_SHORT).show();
     }
 }

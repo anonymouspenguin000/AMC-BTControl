@@ -85,8 +85,8 @@ public class SettingsActivity extends AppCompatActivity {
 
                 Utils.saveSettings(getApplicationContext(), settings);
 
-                Toast toast = Toast.makeText(getApplicationContext(), err != "" ? err : "Saved", Toast.LENGTH_SHORT);
-                toast.show();
+                Toast.makeText(this, err != "" ? err : "Saved", Toast.LENGTH_SHORT).show();
+
                 break;
             default:
                 return super.onOptionsItemSelected(item);
