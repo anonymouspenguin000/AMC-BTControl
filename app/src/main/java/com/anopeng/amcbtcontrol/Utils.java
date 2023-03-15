@@ -1,4 +1,4 @@
-package com.example.amcbtcontrol;
+package com.anopeng.amcbtcontrol;
 
 import android.content.Context;
 

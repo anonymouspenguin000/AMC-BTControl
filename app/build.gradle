@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace 'com.example.amcbtcontrol'
+    namespace 'com.anopeng.amcbtcontrol'
     compileSdk 33
 
     defaultConfig {
-        applicationId "com.example.amcbtcontrol"
+        applicationId "com.anopeng.amcbtcontrol"
         minSdk 16
         targetSdk 33
         versionCode 1
